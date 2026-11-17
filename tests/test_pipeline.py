@@ -911,3 +911,91 @@ def test_concurrent_retry_protection_skips_overlapping_execution() -> None:
     assert first_out[0].coda_updated is True
     assert put_count["count"] == 1
 
+
+def test_pipeline_supports_png_scanned_pdf_legacy_doc_and_isolates_corrupt_files() -> None:
+    """Verify pipeline scores PNG, scanned PDF, and legacy DOC CVs while isolating corrupt PDFs without calling Groq."""
+    samples_dir = Path(__file__).resolve().parent / "samples"
+    png_bytes = (samples_dir / "sample_cv.png").read_bytes()
+    scanned_pdf_bytes = (samples_dir / "sample_scanned_cv.pdf").read_bytes()
+    doc_bytes = (samples_dir / "sample_cv.doc").read_bytes()
+    corrupt_pdf_bytes = (samples_dir / "corrupt_cv.pdf").read_bytes()
+
+    def drive_handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        if "png_cv" in url:
+            return httpx.Response(200, headers={"Content-Type": "image/png"}, content=png_bytes)
+        if "scanned_pdf" in url:
+            return httpx.Response(
+                200, headers={"Content-Type": "application/pdf"}, content=scanned_pdf_bytes
+            )
+        if "legacy_doc" in url:
+            return httpx.Response(
+                200, headers={"Content-Type": "application/msword"}, content=doc_bytes
+            )
+        return httpx.Response(
+            200, headers={"Content-Type": "application/pdf"}, content=corrupt_pdf_bytes
+        )
+
+    coda_posts: list[dict[str, Any]] = []
+
+    def coda_handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET":
+            return httpx.Response(200, json={"items": []})
+        coda_posts.append(json.loads(request.content.decode("utf-8")))
+        return httpx.Response(202, json={"requestId": "req-edge", "addedRowIds": ["i-edge"]})
+
+    mock_groq = MagicMock()
+    mock_groq.chat.completions.create.return_value = SimpleNamespace(
+        choices=[SimpleNamespace(message=SimpleNamespace(content=_valid_groq_json(80.0)))]
+    )
+
+    pipeline, _ = _build_mock_pipeline(
+        drive_handler=drive_handler,
+        coda_handler=coda_handler,
+        groq_client=mock_groq,
+    )
+
+    results = pipeline.process_batch(
+        [
+            {
+                "applicant_id": "APP-PNG",
+                "name": "PNG Candidate",
+                "email": "png@example.com",
+                "role": "Developer",
+                "cv_link": "https://drive.google.com/file/d/png_cv/view",
+            },
+            {
+                "applicant_id": "APP-CORRUPT",
+                "name": "Corrupt Candidate",
+                "email": "corrupt@example.com",
+                "role": "Developer",
+                "cv_link": "https://drive.google.com/file/d/corrupt_pdf/view",
+            },
+            {
+                "applicant_id": "APP-SCANNED",
+                "name": "Scanned PDF Candidate",
+                "email": "scanned@example.com",
+                "role": "Developer",
+                "cv_link": "https://drive.google.com/file/d/scanned_pdf/view",
+            },
+            {
+                "applicant_id": "APP-DOC",
+                "name": "Legacy DOC Candidate",
+                "email": "doc@example.com",
+                "role": "Developer",
+                "cv_link": "https://drive.google.com/file/d/legacy_doc/view",
+            },
+        ]
+    )
+
+    assert [r.status for r in results] == [
+        PipelineStatus.SCORED,
+        PipelineStatus.FAILED,
+        PipelineStatus.SCORED,
+        PipelineStatus.SCORED,
+    ]
+    # Groq was called only for the 3 valid CVs (never for the corrupt PDF)
+    assert mock_groq.chat.completions.create.call_count == 3
+    assert "Corrupted or unreadable PDF file" in (results[1].error_message or "")
+
+

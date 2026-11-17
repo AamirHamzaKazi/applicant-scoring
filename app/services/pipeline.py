@@ -70,8 +70,12 @@ DEFAULT_MAX_DOWNLOAD_BYTES = 25 * 1024 * 1024  # 25 MB safety cap
 
 _CONTENT_TYPE_TO_EXT = {
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+    "application/msword": ".doc",
     "application/pdf": ".pdf",
     "text/plain": ".txt",
+    "image/png": ".png",
+    "image/jpeg": ".jpg",
+    "image/jpg": ".jpg",
 }
 
 
@@ -220,7 +224,7 @@ def _infer_filename_and_extension(
                 return raw_name
 
     url_path = Path(urlparse(source_url).path)
-    if url_path.suffix.lower() in (".docx", ".pdf", ".txt"):
+    if url_path.suffix.lower() in (".docx", ".doc", ".pdf", ".txt", ".png", ".jpg", ".jpeg"):
         return url_path.name
 
     content_type = (response.headers.get("content-type") or "").split(";")[0].strip().lower()
@@ -232,6 +236,12 @@ def _infer_filename_and_extension(
         return f"{applicant_id}.pdf"
     if content.startswith(b"PK\x03\x04"):
         return f"{applicant_id}.docx"
+    if content.startswith(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"):
+        return f"{applicant_id}.doc"
+    if content.startswith(b"\x89PNG\r\n\x1a\n"):
+        return f"{applicant_id}.png"
+    if content.startswith(b"\xff\xd8\xff"):
+        return f"{applicant_id}.jpg"
 
     return f"{applicant_id}.bin"
 

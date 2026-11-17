@@ -1,0 +1,4 @@
+Candidato Sintético — Desarrollador de Software Júnior
+Compétences: Programmation orientée objet, Python, SQL, Git
+Образование: Бакалавр компьютерных наук (Информатика)
+अनुभव: २ वर्ष सॉफ्टवेयर डेवलपर (Python, SQL, REST APIs)

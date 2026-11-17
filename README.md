@@ -82,13 +82,34 @@ applicant-scoring/
 └── README.md
 ```
 
-## 4. Technology Stack
+## 4. Technology Stack & Supported CV Formats
 
-- **Data Intake & Scheduling:** Google Sheets, Google Apps Script
-- **Backend & Document Processing:** Python 3, FastAPI, Uvicorn, Pydantic, PyYAML, python-dotenv, python-docx, pypdf, httpx
+- **Data Intake & Scheduling:** Google Sheets API v4, Google Drive API v3, GitHub Actions (Primary), Windows Task Scheduler (Backup), Google Apps Script
+- **Backend & Document Processing:** Python 3.12, FastAPI, Uvicorn, Pydantic, PyYAML, python-dotenv, python-docx, olefile, pypdf, pypdfium2, Pillow, pytesseract, httpx
 - **AI Evaluation:** Groq Python SDK (`groq`) — `openai/gpt-oss-120b` (`https://api.groq.com/openai/v1`)
-- **Results Storage & Reporting:** Coda API
+- **Results Storage & Reporting:** Coda API v1
 - **Testing & Version Control:** pytest, Git & GitHub
+
+### 4.1 Supported CV Formats ([app/services/cv_parser.py](file:///c:/projects/applicant-scoring/app/services/cv_parser.py))
+
+| Extension | Format | Extraction Method |
+| :--- | :--- | :--- |
+| `.docx` | Microsoft Word OpenXML | `python-docx` paragraph + table extraction, with fallback to raw `word/document.xml` `<w:t>` inspection for text inside Word text boxes/shapes. |
+| `.doc` | Legacy Microsoft Word 97–2003 / RTF | Native `olefile` OLE2 Compound File (`WordDocument` stream FIB `fcMin..fcMac` parser for 8-bit CP1252 and 16-bit UTF-16LE text), RTF-in-`.doc` control-word stripping, misnamed `.docx` detection, and optional `antiword` CLI integration if installed. |
+| `.pdf` | Digital & Scanned PDF | **First choice:** Digital text extraction via `pypdf` (`PdfReader`). **Automatic Scanned PDF Fallback:** Only when digital text extraction yields empty text, pages are rendered to RGB images at `2.0x` scale via `pypdfium2` and passed to the OCR engine. |
+| `.txt` | Plain Text | UTF-8 (`utf-8-sig`), UTF-16 (LE/BE BOM), CP1252, and Latin-1 decoding with binary/null-byte rejection. |
+| `.png`, `.jpg`, `.jpeg` | Raster Image CVs | Validated and normalized to RGB on a white background via `Pillow` (`ImageOps.exif_transpose` + alpha compositing), then extracted via the OCR engine. |
+
+### 4.2 OCR Architecture & System Dependencies
+
+- **OCR Engine Resolution (`ocr_image`):**
+  1. **Tesseract OCR (`pytesseract`):** Used automatically whenever `tesseract` is present on `PATH`, configured via `TESSERACT_CMD`, or installed in `C:\Program Files\Tesseract-OCR\tesseract.exe`.
+     - **Ubuntu / GitHub Actions:** Automatically installed in [.github/workflows/daily-pipeline.yml](file:///c:/projects/applicant-scoring/.github/workflows/daily-pipeline.yml) via `sudo apt-get install -y --no-install-recommends tesseract-ocr`.
+     - **Windows (optional):** Install via `winget install UB-Mannheim.TesseractOCR` or set `TESSERACT_CMD` in `.env`.
+  2. **Built-in Windows OCR Fallback (`Windows.Media.Ocr.OcrEngine`):** On Windows machines where `tesseract.exe` is not installed (or where unsigned third-party binaries are restricted by Windows Application Control), `CVParser` automatically falls back to Microsoft's OS-signed `Windows.Media.Ocr.OcrEngine` WinRT API via PowerShell.
+- **Known Limitations:**
+  - **Legacy `.doc`:** Complex fast-saved/fragmented piece tables, password-encrypted `.doc` files, or Word 6.0/95 pre-OLE2 binary files without a standard `WordDocument` FIB header may not extract via the pure-Python `olefile` parser unless `antiword` is installed on `PATH`. Unreadable or unsupported `.doc` files never fail silently—they return `ExtractionStatus.FAILED` with a descriptive error note.
+  - **OCR Accuracy & Languages:** OCR quality depends on image resolution ($\ge 150\text{ DPI}$ recommended) and the language packs installed for Tesseract (`tesseract-ocr-<lang>`) or the Windows user profile language pack (`Windows.Media.Ocr`). Handwritten CVs or heavily skewed/low-contrast scans may yield partial text or fail with `No extractable text found in document`.
 
 ## 5. Setup and Run Instructions
 
