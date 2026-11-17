@@ -1,0 +1,12 @@
+# Sensitive files
+*.env
+.env*
+*.key
+*.pem
+*.json
+# Google Cloud credentials
+*.gcloud*
+# Dataset containing raw CVs
+Dataset/
+# Any other potential PII files
+*.pid
