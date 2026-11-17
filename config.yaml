@@ -1,0 +1,68 @@
+# Placeholder configuration for the Daily Applicant Scoring Pipeline.
+# Store secrets and credentials in environment variables (.env), never in this file.
+
+app:
+  name: "Daily Applicant Scoring Pipeline"
+  version: "0.1.0"
+
+groq:
+  provider: "groq"
+  model: "openai/gpt-oss-120b"
+  base_url: "https://api.groq.com/openai/v1"
+  timeout_seconds: 30.0
+
+role_requirements:
+  vacancy_id: 90
+  title: "Junior Level Software Developer (1-4 years experience)"
+  min_years_experience: 1
+  max_years_experience: 4
+  required_skills:
+    - "Object-oriented programming"
+    - "SQL / relational databases"
+    - "Version control (Git)"
+  preferred_skills:
+    - "Python or Java or C#"
+    - "REST APIs"
+    - "Automated testing"
+  education:
+    preferred_degree: "Bachelor's degree in Computer Science or related field"
+    required: false
+
+scoring_weights:
+  skills_match: 0.40
+  experience_relevance: 0.30
+  education_fit: 0.15
+  overall_alignment: 0.15
+
+thresholds:
+  shortlist: 75.0
+  review: 50.0
+  reject: 49.9
+  near_duplicate_similarity: 0.80
+
+coda:
+  base_url: "https://coda.io/apis/v1"
+  table_name: "Applicants"
+  timeout_seconds: 15.0
+  column_mapping:
+    applicant_id: "Applicant ID"
+    name: "Name"
+    email: "Email"
+    role: "Role"
+    cv_link: "CV Link"
+    total_score: "Total Score"
+    sub_scores: "Sub-scores"
+    recommendation: "Recommendation"
+    reason: "Reason"
+    date_processed: "Date Processed"
+    status: "Status"
+    error_note: "Error Note"
+
+google_sheets:
+  spreadsheet_id: ""
+  worksheet_name: "Sheet1"
+  columns:
+    name: "Name"
+    email: "Email"
+    role: "Role"
+    cv_link: "CV_Link"

@@ -1,12 +1,38 @@
-# Sensitive files
+# Environment variables and secrets
+.env
+.env.*
 *.env
-.env*
+!.env.example
 *.key
 *.pem
 *.json
+secrets/
+*.json
+
 # Google Cloud credentials
 *.gcloud*
-# Dataset containing raw CVs
+credentials*
+service-account*.json
+
+# Dataset containing raw CVs and local upload copies
 Dataset/
+drive_upload/CVs/
+
 # Any other potential PII files
 *.pid
+
+# Logs and runtime lock files
+logs/
+*.log
+*.lock
+
+# Python artifacts and virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/

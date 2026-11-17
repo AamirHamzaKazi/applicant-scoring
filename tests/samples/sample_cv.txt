@@ -1,0 +1,3 @@
+Synthetic Candidate 001
+Junior Software Developer
+Skills: Python, SQL, Git
